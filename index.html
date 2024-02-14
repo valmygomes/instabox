@@ -22,31 +22,36 @@
             const response = await fetch(apiUrl);
             const mediaList = await response.json();
 
-            // Sort mediaList by timestamp in descending order
-            mediaList.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-            let counter = 1;
             for (const media of mediaList) {
-                const mediaUrl = media.mediaUrl;
-                const response = await fetch(mediaUrl);
-                const blob = await response.blob();
-                // Extracting the filename and extension from the media URL
-                const extension = mediaUrl.split('?')[0].split('.').pop(); // Extracting extension directly
-                const filename = `${code}_${String(counter++).padStart(3, '0')}.${extension}`; // Including API code and padding number
-                folder.file(filename, blob);
+                if (media.mediaUrl) {
+                    const mediaResponse = await fetch(media.mediaUrl);
+                    const blob = await mediaResponse.blob();
+                    const filename = constructFilename(media, code);
+                    folder.file(filename, blob);
+                }
             }
 
             const zipBlob = await zip.generateAsync({type: 'blob'});
-            const link = document.createElement('a');
-            link.href = window.URL.createObjectURL(zipBlob);
-            link.download = `${code}.zip`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
+            triggerDownload(zipBlob, `${code}.zip`);
         } catch (error) {
             console.error('Error fetching or zipping the files:', error);
         }
+    }
+
+    function constructFilename(media, code) {
+        const urlParts = media.mediaUrl.split('?')[0].split('/');
+        const originalFilename = urlParts[urlParts.length - 1];
+        const extension = originalFilename.split('.').pop();
+        return `${code}_${media.id}.${extension}`;
+    }
+
+    function triggerDownload(blob, filename) {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     window.addEventListener('load', fetchAndZip);
